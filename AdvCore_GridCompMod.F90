@@ -902,7 +902,7 @@ contains
          ! Use total pressure
          call offline_tracer_advection(TRACERS, PLE0, PLE1, MFX, MFY, CX, CY, &
                                        FV_Atm(1)%gridstruct, FV_Atm(1)%flagstruct, FV_Atm(1)%bd, &
-                                       FV_Atm(1)%domain, AK, BK, PTOP, 
+                                       FV_Atm(1)%domain, AK, BK, PTOP, &
                                        FV_Atm(1)%npx, FV_Atm(1)%npy, FV_Atm(1)%npz, &
                                        NAdv, dt, PLEAdv )
 
