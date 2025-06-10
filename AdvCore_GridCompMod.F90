@@ -543,6 +543,9 @@ contains
       call MAPL_TimerOff(MAPL,"INITIALIZE")
       call MAPL_TimerOff(MAPL,"TOTAL")
 
+      ! Cleanup
+      temp2d => NULL()
+
       RETURN_(ESMF_SUCCESS)
 
       end subroutine Initialize
@@ -581,6 +584,7 @@ contains
       type (ESMF_Grid)              :: ESMFGRID
       type (MAPL_MetaComp), pointer :: MAPL
       type (ESMF_Alarm)             :: ALARM
+      type (ESMF_VM)                :: VM
 
 ! Imports
       REAL(REAL8), POINTER, DIMENSION(:,:,:)   :: iCX
@@ -661,6 +665,19 @@ contains
       VERIFY_(STATUS)
       Iam = trim(COMP_NAME) // Iam
 
+      ! Get the VM for memory prints
+      !-----------------------------------
+      call ESMF_VmGetCurrent(VM, RC=STATUS)
+      _VERIFY(STATUS)
+
+      ! ewl mem debug
+      !-----------------------------------
+      call ESMF_VMBarrier(VM, RC=STATUS)
+      _VERIFY(STATUS)
+      call MAPL_MemUtilsWrite(VM, &
+           'AdvCore: Start of Run : ', RC=STATUS )
+      _VERIFY(STATUS)
+
 !WMP  if (AdvCore_Advection>0) then
 
 ! Get parameters from generic state.
@@ -674,6 +691,14 @@ contains
 
       call MAPL_TimerOn(MAPL,"TOTAL")
       call MAPL_TimerOn(MAPL,"RUN")
+
+      ! ewl mem debug
+      !-----------------------------------
+      call ESMF_VMBarrier(VM, RC=STATUS)
+      _VERIFY(STATUS)
+      call MAPL_MemUtilsWrite(VM, &
+           'AdvCore: Before allocation : ', RC=STATUS )
+      _VERIFY(STATUS)
 
 ! Get AKs and BKs for vertical grid
 !----------------------------------
@@ -1020,6 +1045,14 @@ contains
          if (AdvCore_Advection>0) then
 #endif
 
+            ! ewl mem debug
+            !-----------------------------------
+            call ESMF_VMBarrier(VM, RC=STATUS)
+            _VERIFY(STATUS)
+            call MAPL_MemUtilsWrite(VM, &
+                 'AdvCore: Before offline_tracer_advection : ', RC=STATUS )
+            _VERIFY(STATUS)
+
             ! Run offline advection
             if ( Use_Total_Air_Pressure > 0 ) then
                call offline_tracer_advection( TRACERS,              &
@@ -1064,6 +1097,15 @@ contains
                                              dt,                   &
                                              PLEAdv )
             endif
+
+            ! ewl mem debug
+            !-----------------------------------
+            call ESMF_VMBarrier(VM, RC=STATUS)
+            _VERIFY(STATUS)
+            call MAPL_MemUtilsWrite(VM, &
+                 'AdvCore: After offline_tracer_advection : ', RC=STATUS )
+            _VERIFY(STATUS)
+
          endif
 #ifdef ADJOINT
          if (isAdjoint) &
@@ -1185,6 +1227,10 @@ contains
       VERIFY_(STATUS)
       DEALLOCATE( BK ,stat=STATUS )
       VERIFY_(STATUS)
+      DEALLOCATE( AK_r8 ,stat=STATUS )
+      VERIFY_(STATUS)
+      DEALLOCATE( BK_r8 ,stat=STATUS )
+      VERIFY_(STATUS)
 
       DEALLOCATE( PLE0   )
       DEALLOCATE( PLE1   )
@@ -1205,6 +1251,51 @@ contains
       call MAPL_TimerOff(MAPL,"TOTAL")
 
       !WMP  end if ! AdvCore_Advection
+
+      ! ewl debug - nullify pointers for safety
+      IF ( ASSOCIATED ( iCX       ) ) iCX       => NULL()
+      IF ( ASSOCIATED ( iCY       ) ) iCY       => NULL()
+      IF ( ASSOCIATED ( iMFX      ) ) iMFX      => NULL()
+      IF ( ASSOCIATED ( iMFY      ) ) iMFY      => NULL()
+      IF ( ASSOCIATED ( iPLE0     ) ) iPLE0     => NULL()
+      IF ( ASSOCIATED ( iPLE1     ) ) iPLE1     => NULL()
+      IF ( ASSOCIATED ( iDryPLE0  ) ) iDryPLE0  => NULL()
+      IF ( ASSOCIATED ( iDryPLE1  ) ) iDryPLE1  => NULL()
+      IF ( ASSOCIATED ( iSPHU0    ) ) iSPHU0    => NULL()
+      IF ( ASSOCIATED ( ePLE      ) ) ePLE      => NULL()
+      IF ( ASSOCIATED ( eDryPLE   ) ) eDryPLE   => NULL()
+      IF ( ASSOCIATED ( ePLEadv   ) ) ePLEadv   => NULL()
+      IF ( ASSOCIATED ( CX        ) ) CX        => NULL()
+      IF ( ASSOCIATED ( CY        ) ) CY        => NULL()
+      IF ( ASSOCIATED ( MFX       ) ) MFX       => NULL()
+      IF ( ASSOCIATED ( MFY       ) ) MFY       => NULL()
+      IF ( ASSOCIATED ( PLE0      ) ) PLE0      => NULL()
+      IF ( ASSOCIATED ( PLE1      ) ) PLE1      => NULL()
+      IF ( ASSOCIATED ( DryPLE0   ) ) DryPLE0   => NULL()
+      IF ( ASSOCIATED ( DryPLE1   ) ) DryPLE1   => NULL()
+      IF ( ASSOCIATED ( PLEAdv    ) ) PLEAdv    => NULL()
+      IF ( ASSOCIATED ( SPHU0     ) ) SPHU0     => NULL()
+      IF ( ASSOCIATED ( AK        ) ) AK        => NULL()
+      IF ( ASSOCIATED ( BK        ) ) BK        => NULL()
+      IF ( ASSOCIATED ( TRACERS   ) ) TRACERS   => NULL()
+      IF ( ASSOCIATED ( advTracers) ) advTracers=> NULL()
+      IF ( ASSOCIATED ( temp3D    ) ) temp3D    => NULL()
+      IF ( ASSOCIATED ( tracer_r4 ) ) tracer_r4 => NULL()
+      IF ( ASSOCIATED ( tracer_r8 ) ) tracer_r8 => NULL()
+
+      ! ewl debug - deallocate for safety
+      IF ( ALLOCATED ( AK_R8     ) ) DEALLOCATE ( AK_R8      )
+      IF ( ALLOCATED ( BK_R8     ) ) DEALLOCATE ( BK_R8      )
+      IF ( ALLOCATED ( xlist     ) ) DEALLOCATE ( xlist      )
+      IF ( ALLOCATED ( biggerlist) ) DEALLOCATE ( biggerlist )
+
+      ! ewl mem debug
+      !-----------------------------------
+      call ESMF_VMBarrier(VM, RC=STATUS)
+      _VERIFY(STATUS)
+      call MAPL_MemUtilsWrite(VM, &
+           'AdvCore: End of Run : ', RC=STATUS )
+      _VERIFY(STATUS)
 
       RETURN_(ESMF_SUCCESS)
 
