@@ -70,6 +70,8 @@ endif()
 
 add_definitions (-DSPMD -DMAPL_MODE)
 
+add_compile_definitions( $<$<BOOL:${PRINT_MASS}>:PRINT_MASS> )
+
 foreach(flag ${tmp})
    target_compile_options (${this} PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:${flag}>)
 endforeach()
