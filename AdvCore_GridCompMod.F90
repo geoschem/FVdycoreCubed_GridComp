@@ -211,7 +211,9 @@ contains
          VLOCATION  = MAPL_VLocationEdge,             RC=STATUS  )
      VERIFY_(STATUS)
 
-    call MAPL_AddImportSpec( gc,                                   &
+#ifndef MODEL_CTMENV
+     ! Only include this if not running CTMenv-only since DELPDRY comes from GEOS-Chem
+     call MAPL_AddImportSpec( gc,                                  &
         SHORT_NAME = 'DELPDRY',                                    &
         LONG_NAME  = 'delta dry pressure across levels',           &
         UNITS      = 'Pa',                                         &
@@ -219,6 +221,7 @@ contains
          DIMS       = MAPL_DimsHorzVert,                           &
          VLOCATION  = MAPL_VLocationCenter,             RC=STATUS  )
      VERIFY_(STATUS)
+#endif
 
     call MAPL_AddImportSpec( gc,                                   &
         SHORT_NAME = 'TRADV',                                      &
