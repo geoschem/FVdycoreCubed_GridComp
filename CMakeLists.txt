@@ -2,15 +2,19 @@ esma_set_this ()
 
 option(BUILD_GEOS_GTFV3_INTERFACE "Build GEOS-gtFV3 interface" OFF)
 
+# GCHP: remove certain files that are not needed:
+#   - sw.f90
+#   - jw.f90
+#   - testcases_3_4_5_6_stand_alone.f90
+#   - DynCore_GridCompMod.F90
+#   - StandAlone_DynAdvCore_GridCompMod.F90
 set (srcs
-  sw.f90 jw.f90 testcases_3_4_5_6_stand_alone.f90
   GetWeightsC2C.F90
   GetWeights.F90
   CubeHalo.F90
   Cube2LatLon.F90 LatLon2Cube.F90 AppGridCreate.F90 FV_StateMod.F90
   AdvCore_GridCompMod.F90
-  DynCore_GridCompMod.F90 CreateInterpWeights_GridCompMod.F90
-  StandAlone_DynAdvCore_GridCompMod.F90
+  CreateInterpWeights_GridCompMod.F90
   CubeToLatLonRegridder.F90
   LatLonToCubeRegridder.F90
   CubeToCubeRegridder.F90
@@ -22,6 +26,10 @@ set (srcs
   fv_regridding_utils.F90
   rs_scaleMod.F90
   )
+
+# GCHP: add fvdycore subdirectory
+add_subdirectory(fvdycore)
+
 if (BUILD_GEOS_GTFV3_INTERFACE)
   list (APPEND srcs
   geos-gtfv3/geos_gtfv3_interface.f90
@@ -104,8 +112,16 @@ if (BUILD_GEOS_GTFV3_INTERFACE)
 
 endif ()
 
-set(dependencies MAPL MAPL.generic3g GFTL_SHARED::gftl-shared-v2 GMAO_hermes GEOS_Shared esmf OpenMP::OpenMP_Fortran)
+# Set dependencies differently in GCHP
+#set(dependencies MAPL MAPL.generic3g GFTL_SHARED::gftl-shared-v2 GMAO_hermes GEOS_Shared esmf OpenMP::OpenMP_Fortran)
+if (ESMA_USE_GFE_NAMESPACE)
+  set(dependencies MAPL MAPL.generic3g GFTL_SHARED::gftl-shared GMAO_hermes GEOS_Shared fvdycore ESMF)
+else ()
+  set(dependencies MAPL MAPL.generic3g gftl-shared GMAO_hermes GEOS_Shared fvdycore ESMF)
+endif ()
 
+# GCHP: do not add fvdycore to subcomponents
+# ewl: this if-else is new, and so is last line within each. Leave for now but might need to do something
 if (BUILD_GEOS_GTFV3_INTERFACE)
   esma_add_library (${this}
     SRCS ${srcs}
@@ -116,14 +132,15 @@ if (BUILD_GEOS_GTFV3_INTERFACE)
 else ()
   esma_add_library (${this}
     SRCS ${srcs}
-    SUBCOMPONENTS fvdycore
+    #SUBCOMPONENTS fvdycore
     DEPENDENCIES ${dependencies}
     DEPENDENCIES ${GFDL}
     TYPE SHARED
   )
 endif ()
 
-mapl_acg (${this} DynCore_StateSpecs.rc IMPORT_SPECS EXPORT_SPECS INTERNAL_SPECS 3g)
+# GCHP: Turn off DynCore specs
+#mapl_acg (${this} DynCore_StateSpecs.rc IMPORT_SPECS EXPORT_SPECS INTERNAL_SPECS 3g)
 mapl_acg (${this} AdvCore_StateSpecs.rc IMPORT_SPECS EXPORT_SPECS)
 
 if (FV_PRECISION STREQUAL R4)
@@ -154,64 +171,70 @@ if (CRAY_POINTER)
   set_target_properties (${this} PROPERTIES COMPILE_FLAGS ${CRAY_POINTER})
 endif()
 
+# GCHP: option to skip advection run
+if (MODEL_CTMENV)
+  add_definitions (-DMODEL_CTMENV)
+endif()
+
 add_definitions (-DSPMD -DMAPL_MODE -DFVREGRID_MAPL_MODE)
 
 foreach(flag ${tmp})
    target_compile_options (${this} PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:${flag}>)
 endforeach()
 
-ecbuild_add_executable (
-  TARGET StandAlone_FV3_Dycore.x
-  SOURCES StandAlone_FV3_Dycore.F90
-  LIBS ${this} OpenMP::OpenMP_Fortran)
-
-find_package (JeMalloc)
-if(JeMalloc_FOUND)
-  message(STATUS "JeMalloc found, using for StandAlone_FV3_Dycore.x")
-  target_link_libraries (StandAlone_FV3_Dycore.x JeMalloc::JeMalloc)
-endif()
-
-ecbuild_add_executable (
-  TARGET rs_scale.x
-  SOURCES rs_scale.F90
-  LIBS ${this} OpenMP::OpenMP_Fortran)
-
-ecbuild_add_executable (
-   TARGET StandAlone_AdvCore.x
-   SOURCES StandAlone_AdvCore.F90
-   LIBS ${this} OpenMP::OpenMP_Fortran)
-
-ecbuild_add_executable (
-   TARGET StandAlone_DynAdvCore.x
-   SOURCES StandAlone_DynAdvCore.F90
-   LIBS ${this} OpenMP::OpenMP_Fortran)
-
-ecbuild_add_executable (
-   TARGET c2c.x
-   SOURCES c2c.F90
-   LIBS ${this} OpenMP::OpenMP_Fortran)
-
-ecbuild_add_executable (
-   TARGET interp_restarts.x
-   SOURCES interp_restarts.F90
-   LIBS ${this} OpenMP::OpenMP_Fortran)
-
-ecbuild_add_executable (
-   TARGET interp_restarts_bin.x
-   SOURCES interp_restarts_bin.F90
-   LIBS ${this} OpenMP::OpenMP_Fortran)
-
-if (BUILD_GEOS_GTFV3_INTERFACE)
-  ecbuild_add_executable (
-    TARGET fv3_driver.x
-    SOURCES
-    geos-gtfv3/driver/FV_State_Utilities.F90
-    geos-gtfv3/driver/input/domain_dim.f90
-    geos-gtfv3/driver/input/grid_bounds.f90
-    geos-gtfv3/driver/input/input_scalars.f90
-    geos-gtfv3/driver/input/input_arrays.f90
-    geos-gtfv3/driver/fv3_driver.F90
-    LIBS ${this})
-endif ()
-
-add_subdirectory(scripts)
+# GCHP: do not add executables for subdirectory scripts
+#ecbuild_add_executable (
+#  TARGET StandAlone_FV3_Dycore.x
+#  SOURCES StandAlone_FV3_Dycore.F90
+#  LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#find_package (JeMalloc)
+#if(JeMalloc_FOUND)
+#  message(STATUS "JeMalloc found, using for StandAlone_FV3_Dycore.x")
+#  target_link_libraries (StandAlone_FV3_Dycore.x JeMalloc::JeMalloc)
+#endif()
+#
+#ecbuild_add_executable (
+#  TARGET rs_scale.x
+#  SOURCES rs_scale.F90
+#  LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#ecbuild_add_executable (
+#   TARGET StandAlone_AdvCore.x
+#   SOURCES StandAlone_AdvCore.F90
+#   LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#ecbuild_add_executable (
+#   TARGET StandAlone_DynAdvCore.x
+#   SOURCES StandAlone_DynAdvCore.F90
+#   LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#ecbuild_add_executable (
+#   TARGET c2c.x
+#   SOURCES c2c.F90
+#   LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#ecbuild_add_executable (
+#   TARGET interp_restarts.x
+#   SOURCES interp_restarts.F90
+#   LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#ecbuild_add_executable (
+#   TARGET interp_restarts_bin.x
+#   SOURCES interp_restarts_bin.F90
+#   LIBS ${this} OpenMP::OpenMP_Fortran)
+#
+#if (BUILD_GEOS_GTFV3_INTERFACE)
+#  ecbuild_add_executable (
+#    TARGET fv3_driver.x
+#    SOURCES
+#    geos-gtfv3/driver/FV_State_Utilities.F90
+#    geos-gtfv3/driver/input/domain_dim.f90
+#    geos-gtfv3/driver/input/grid_bounds.f90
+#    geos-gtfv3/driver/input/input_scalars.f90
+#    geos-gtfv3/driver/input/input_arrays.f90
+#    geos-gtfv3/driver/fv3_driver.F90
+#    LIBS ${this})
+#endif ()
+#
+#add_subdirectory(scripts)
