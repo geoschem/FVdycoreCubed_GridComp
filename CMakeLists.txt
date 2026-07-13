@@ -68,6 +68,11 @@ if (CRAY_POINTER)
   set_target_properties (${this} PROPERTIES COMPILE_FLAGS ${CRAY_POINTER})
 endif()
 
+# GCHP: option to skip advection run
+if (MODEL_CTMENV)
+  add_definitions (-DMODEL_CTMENV)
+endif()
+
 add_definitions (-DSPMD -DMAPL_MODE)
 
 foreach(flag ${tmp})
