@@ -112,14 +112,12 @@ endif ()
 #  esmf MAPL
 #  GFTL_SHARED::gftl-shared-v2 GMAO_hermes GEOS_Shared
 #  OpenMP::OpenMP_Fortran
-#))
-# ewl mapl3 note: not sure if esma_use_gfe_namespace is still a thing...comment out for now
-## ewl mapl3 note: might need to add MAPL.base3g
-#if (ESMA_USE_GFE_NAMESPACE)
-#  set(dependencies MAPL MAPL.generic3g GFTL_SHARED::gftl-shared GMAO_hermes GEOS_Shared fvdycore ESMF)
-#else ()
-set(dependencies MAPL MAPL.generic3g gftl-shared GMAO_hermes GEOS_Shared fvdycore ESMF)
-#endif ()
+#)
+set(dependencies
+  esmf MAPL
+  gftl-shared-v2 GMAO_hermes GEOS_Shared
+  fvdycore
+)
 
 # GCHP: do not add fvdycore to subcomponents
 if (BUILD_GEOS_GTFV3_INTERFACE)
