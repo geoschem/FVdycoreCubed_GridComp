@@ -3,7 +3,7 @@
 MODULE fv_shared
 
   USE ESMF
-  USE MAPL, ONLY : MAPL_FieldGet, MAPL_Verify
+  USE MAPL, ONLY : MAPL_FieldGet, MAPL_Verify, MAPL_Return
 
   IMPLICIT NONE
 
