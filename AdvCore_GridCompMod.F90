@@ -250,7 +250,7 @@ contains
       real :: tmp0, tmp1, tmp2
       logical :: same_tradv_data, rpt_mass, DEBUG_ADV, adjust_tracers
       logical, save :: first_run = .true.
-      character(len=ESMF_MAXSTR) :: field_name, mytracer
+      character(len=ESMF_MAXSTR) :: mytracer
       integer :: n, im, jm, lm, nq, QSPLIT, status
       class(logger_t), pointer :: logger
 
@@ -549,7 +549,7 @@ contains
       type(ESMF_VM) :: vm
       type(ESMF_HConfig) :: hconfig
       integer :: p_split = 1
-      integer :: comm, im_world, topology(2), num_levels, status
+      integer :: comm, num_levels, status
 
       call ESMF_VMGetCurrent(vm, _RC)
       call ESMF_VMGet(vm, mpiCommunicator=comm, _RC)
