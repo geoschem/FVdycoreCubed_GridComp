@@ -7,6 +7,7 @@ module FV_StateMod
 !
 ! !USES:
 #if defined( MAPL_MODE )
+   use MAPL ! gchp debugging
    use ESMF                ! ESMF base class
    use MAPL, only: MAPL_Verify, MAPL_Assert, MAPL_Return
    use MAPL, only: WRITE_PARALLEL, MAPL_GridCompGetResource, MAPL_GridCompGet
@@ -3534,6 +3535,8 @@ subroutine fv_computeMassFluxes_r8(ucI, vcI, ple, mfx, mfy, cx, cy, dt)
   real(FVPRC) :: cmax, frac
   integer     :: it, nsplt
 
+  if ( mapl_am_i_root() ) print *, "ewl: start of fv_computeMassFluxes_r8"
+  
 ! Fill Ghosted arrays and update halos
   uc = MAPL_UNDEFINED_REAL
   vc = MAPL_UNDEFINED_REAL
@@ -3553,6 +3556,8 @@ subroutine fv_computeMassFluxes_r8(ucI, vcI, ple, mfx, mfy, cx, cy, dt)
   enddo
   call mpp_update_domains( uc, vc, FV_Atm(1)%domain, gridtype=CGRID_NE, complete=.true.)
 
+  if ( mapl_am_i_root() ) print *, "ewl: fv 1"
+  
   do k=1,FV_Atm(1)%flagstruct%npz
     ! Prepare pressures for Mass Flux calculations
      delp(is:ie,js:je) = ple(:,:,k+1)-ple(:,:,k)
@@ -3622,6 +3627,9 @@ subroutine fv_computeMassFluxes_r8(ucI, vcI, ple, mfx, mfy, cx, cy, dt)
            ra_y(i,j) = fv_atm(1)%gridstruct%area(i,j) + yfx(i,j) - yfx(i,j+1)
         enddo
      enddo
+
+     if ( mapl_am_i_root() ) print *, "ewl: 2"
+
 ! Zero out accumulated mass fluxes and courant numbers
       cx(:,:,k) = 0.0
      mfx(:,:,k) = 0.0
@@ -3673,6 +3681,8 @@ subroutine fv_computeMassFluxes_r8(ucI, vcI, ple, mfx, mfy, cx, cy, dt)
      mfy(:,:,k) =  fy(is:ie,js:je)
 #endif
   enddo
+
+  if ( mapl_am_i_root() ) print *, "ewl: fv end"
 
 return
 end subroutine fv_computeMassFluxes_r8

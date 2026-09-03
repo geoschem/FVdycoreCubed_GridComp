@@ -112,6 +112,8 @@ contains
       integer :: ndt, itracer
       integer :: status
 
+      _HERE, 'SetServices starting'
+      
 #include "AdvCore_Import___.h"
 #include "AdvCore_Export___.h"
       ! AdvCore provides advection SERVICE
@@ -160,6 +162,8 @@ contains
       if (.not. FV3_DynCoreIsRunning) call fv_setup(gc, _RC)
       call MAPL_GridCompGetResource(gc, "AdvCore_Advection", AdvCore_Advection, default=AdvCore_Advection, _RC)
 
+      _HERE, 'SetServices done'
+      
       _RETURN(_SUCCESS)
    end subroutine SetServices
 
@@ -183,6 +187,8 @@ contains
       !BOC
       real, pointer :: area(:, :)
       integer :: is, ie, js, je, status
+
+      _HERE, 'Initialize starting'
 
       ! pchakrab - maybe use the FV_DynCoreIsRunning flag instead
       if (.not. FV3_DynCoreIsRunning) then
@@ -208,6 +214,8 @@ contains
             area = FV_Atm(1)%gridstruct%area(is:ie, js:je)
          end if
       end if
+
+      _HERE, 'Initialize done'
 
       _RETURN(_SUCCESS)
       _UNUSED_DUMMY(import)
@@ -253,6 +261,9 @@ contains
       character(len=ESMF_MAXSTR) :: mytracer
       integer :: n, im, jm, lm, nq, QSPLIT, status
       class(logger_t), pointer :: logger
+
+      _HERE, 'Run starting'
+      if (AdvCore_Advection == 1) print *, "will return early from advcore run!"
 
       _RETURN_UNLESS(AdvCore_Advection > 0)
 
@@ -393,6 +404,8 @@ contains
          prt_minmax = .false.
       end if
 
+      _HERE, 'Run done'
+
       _RETURN(_SUCCESS)
    end subroutine Run
 
@@ -411,10 +424,14 @@ contains
       !    and releases the space for the persistent data .
       !EOP
 
+      _HERE, 'Finalize starting'
+
       ! Clean up FV if AdvCore is running without FV3_DynCoreIsRunning
       if (.not. FV3_DynCoreIsRunning) then
          call fv_end(FV_Atm, grids_on_my_pe, .false.)
       end if
+
+      _HERE, 'Finalize done'
 
       _RETURN(_SUCCESS)
       _UNUSED_DUMMY(gc)
