@@ -772,16 +772,15 @@ contains
          VERIFY_(STATUS)
          ALLOCATE( SPHU0(IM,JM,LM  ) )
          SPHU0   = iSPHU0
-      ELSE
-         CALL MAPL_GetPointer(IMPORT,iDryPLE0,'DryPLE0',ALLOC=.TRUE.,RC=STATUS)
-         VERIFY_(STATUS)
-         CALL MAPL_GetPointer(IMPORT,iDryPLE1,'DryPLE1',ALLOC=.TRUE.,RC=STATUS)
-         VERIFY_(STATUS)
-         ALLOCATE( DryPLE0(IM,JM,LM+1) )
-         ALLOCATE( DryPLE1(IM,JM,LM+1) )
-         DryPLE0 = iDryPLE0
-         DryPLE1 = iDryPLE1
       ENDIF
+      CALL MAPL_GetPointer(IMPORT,iDryPLE0,'DryPLE0',ALLOC=.TRUE.,RC=STATUS)
+      VERIFY_(STATUS)
+      CALL MAPL_GetPointer(IMPORT,iDryPLE1,'DryPLE1',ALLOC=.TRUE.,RC=STATUS)
+      VERIFY_(STATUS)
+      ALLOCATE( DryPLE0(IM,JM,LM+1) )
+      ALLOCATE( DryPLE1(IM,JM,LM+1) )
+      DryPLE0 = iDryPLE0
+      DryPLE1 = iDryPLE1
 
       ALLOCATE(  PLE0(IM,JM,LM+1) )
       ALLOCATE(  PLE1(IM,JM,LM+1) )
@@ -1332,24 +1331,18 @@ contains
       end if ! NQ > 0
 
       ! GCHP: pressure edge exports
-      if ( Use_Total_Air_Pressure < 1 ) then
-         call MAPL_GetPointer ( EXPORT, eDryPLE, 'DryPLE', ALLOC=.TRUE., RC=STATUS )
-         eDryPLE(:,:,:) = DryPLE1(:,:,:)
-
-         ! Set R4 exports as temporary work-around for MAPL 2.55 bug
-         call MAPL_GetPointer ( EXPORT, eDryPLE_R4, 'DryPLE_R4', &
-                                NotFoundOK=.TRUE., _RC )
-         IF ( ASSOCIATED(eDryPLE_R4) ) eDryPLE_R4(:,:,:) = eDryPLE(:,:,:)
-
-      endif
       call MAPL_GetPointer ( EXPORT, ePLE, 'PLE', ALLOC=.TRUE., _RC )
       ePLE(:,:,:) = PLE1(:,:,:)
+      call MAPL_GetPointer ( EXPORT, eDryPLE, 'DryPLE', ALLOC=.TRUE., _RC )
+      eDryPLE(:,:,:) = DryPLE1(:,:,:)
       call MAPL_GetPointer ( EXPORT, ePLEadv, 'PLEadv', ALLOC=.TRUE., _RC )
       ePLEadv(:,:,:) = PLEadv(:,:,:)
 
       ! GCHP: Set R4 exports as temporary work-around for MAPL 2.55 bug      
       call MAPL_GetPointer ( EXPORT, ePLE_R4, 'PLE_R4', NotFoundOK=.TRUE., _RC )
       IF ( ASSOCIATED(ePLE_R4) ) ePLE_R4(:,:,:) = ePLE(:,:,:)
+      call MAPL_GetPointer ( EXPORT, eDryPLE_R4, 'DryPLE_R4', NotFoundOK=.TRUE., _RC )
+      IF ( ASSOCIATED(eDryPLE_R4) ) eDryPLE_R4(:,:,:) = eDryPLE(:,:,:)
       call MAPL_GetPointer ( EXPORT, ePLEadv_R4, 'PLEadv_R4', NotFoundOK=.TRUE., _RC )
       IF ( ASSOCIATED(ePLEadv_R4) ) ePLEadv_R4(:,:,:) = ePLEadv(:,:,:)
 
@@ -1362,6 +1355,8 @@ contains
 
       DEALLOCATE( PLE0   )
       DEALLOCATE( PLE1   )
+      DEALLOCATE( DryPLE0 )
+      DEALLOCATE( DryPLE1 )
       DEALLOCATE( PLEAdv )
       DEALLOCATE(  MFX   )
       DEALLOCATE(  MFY   )
@@ -1370,9 +1365,6 @@ contains
 
       if ( Use_Total_Air_Pressure > 0 ) then
          DEALLOCATE( SPHU0 )
-      else
-         DEALLOCATE( DryPLE0 )
-         DEALLOCATE( DryPLE1 )
       endif
 
       call MAPL_TimerOff(MAPL,"RUN")
