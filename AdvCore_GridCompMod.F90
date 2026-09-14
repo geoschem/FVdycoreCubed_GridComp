@@ -550,6 +550,8 @@ contains
       type(ESMF_HConfig) :: hconfig
       integer :: p_split = 1
       integer :: comm, num_levels, status
+      type(ESMF_HConfig) :: geometry_cfg, vertical_grid_cfg
+      logical :: has_geometry, has_vertical_grid, has_num_levels
 
       call ESMF_VMGetCurrent(vm, _RC)
       call ESMF_VMGet(vm, mpiCommunicator=comm, _RC)
@@ -557,7 +559,26 @@ contains
 
       call fv_init1(FV_Atm, dt, grids_on_my_pe, p_split)
 
-      call MAPL_GridCompGet(gc, hconfig=hconfig, num_levels=num_levels, _RC)
+
+      ! Fix: read number of levels from advcore.yaml rather than get from MAPL
+      ! grid comp, since num vertical levels not yet initialized there (ewl)
+      !call MAPL_GridCompGet(gc, hconfig=hconfig, num_levels=num_levels, _RC)
+      call MAPL_GridCompGet(gc, hconfig=hconfig, _RC)
+      has_geometry = ESMF_HConfigIsDefined(hconfig, keyString="geometry", _RC)
+      _ASSERT(has_geometry, 'No geometry section in component hconfig')
+      geometry_cfg = ESMF_HConfigCreateAt(hconfig, keyString="geometry", _RC)
+      has_vertical_grid = &
+           ESMF_HConfigIsDefined(geometry_cfg, keyString="vertical_grid", _RC)
+      _ASSERT(has_vertical_grid, 'No vertical_grid section in geometry hconfig')
+      vertical_grid_cfg = &
+           ESMF_HConfigCreateAt(geometry_cfg, keyString="vertical_grid", _RC)
+      has_num_levels = &
+           ESMF_HConfigIsDefined(vertical_grid_cfg, keyString="num_levels", _RC)
+      _ASSERT(has_num_levels, 'num_levels not specified in vertical_grid section')
+      num_levels = ESMF_HConfigAsI4(vertical_grid_cfg, keyString="num_levels", _RC)
+      call ESMF_HConfigDestroy(vertical_grid_cfg, _RC)
+      call ESMF_HConfigDestroy(geometry_cfg, _RC)
+
       call setup_fv_dimensions_and_topology(hconfig, num_levels, FV_Atm(1)%flagstruct, FV_Atm(1)%layout, _RC)
       call fv_init2(FV_Atm, dt, grids_on_my_pe, p_split)
 
