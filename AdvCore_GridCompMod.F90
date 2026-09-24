@@ -1031,36 +1031,37 @@ contains
          !
          !endif ! chk_mass .and. firstRun
 
-         ! If first timestep and delta pressure in the restart file is non-zero,
-         ! then scale mixing ratios by ratio of restart file delta pressure to
-         ! run-time met delta pressure in order to conserve restart file mass
-         if ( firstRun .and. associated(iDELPDRY) ) THEN
-
-            ! Only scale mixing ratios if non-zero delta pressures in the restart file
-            if ( sum(iDELPDRY) > 0.d0 ) THEN
-               ALLOCATE( DELPDRY(IM,JM,LM) )
-               DELPDRY = iDELPDRY
-               if (AdvCore_Advection>0) then
-                  if (Use_Total_Air_Pressure > 0) then
-                     call scale_tracers_by_pressure_ratio(tracers, PLE0, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  else
-                     call scale_tracers_by_pressure_ratio(tracers, DryPLE0, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  endif
-               else
-                  if (Use_Total_Air_Pressure > 0) then
-                     call scale_tracers_by_pressure_ratio(tracers, PLE1, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  else
-                     call scale_tracers_by_pressure_ratio(tracers, DryPLE1, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  endif
-               endif
-               DEALLOCATE( DELPDRY )
-            endif
-
-         endif
+         ! Skip this for IMI pending fix
+         !! If first timestep and delta pressure in the restart file is non-zero,
+         !! then scale mixing ratios by ratio of restart file delta pressure to
+         !! run-time met delta pressure in order to conserve restart file mass
+         !if ( firstRun .and. associated(iDELPDRY) ) THEN
+         !
+         !   ! Only scale mixing ratios if non-zero delta pressures in the restart file
+         !   if ( sum(iDELPDRY) > 0.d0 ) THEN
+         !      ALLOCATE( DELPDRY(IM,JM,LM) )
+         !      DELPDRY = iDELPDRY
+         !      if (AdvCore_Advection>0) then
+         !         if (Use_Total_Air_Pressure > 0) then
+         !            call scale_tracers_by_pressure_ratio(tracers, PLE0, &
+         !                 DELPDRY, IM, JM, LM, NAdv)
+         !         else
+         !            call scale_tracers_by_pressure_ratio(tracers, DryPLE0, &
+         !                 DELPDRY, IM, JM, LM, NAdv)
+         !         endif
+         !      else
+         !         if (Use_Total_Air_Pressure > 0) then
+         !            call scale_tracers_by_pressure_ratio(tracers, PLE1, &
+         !                 DELPDRY, IM, JM, LM, NAdv)
+         !         else
+         !            call scale_tracers_by_pressure_ratio(tracers, DryPLE1, &
+         !                 DELPDRY, IM, JM, LM, NAdv)
+         !         endif
+         !      endif
+         !      DEALLOCATE( DELPDRY )
+         !   endif
+         !
+         !endif
 
          ! If using total air then set extra tracer to specific humidity and
          ! convert all other tracers from kg/kg dry to kg/kg total air
