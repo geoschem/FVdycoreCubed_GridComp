@@ -250,7 +250,7 @@ contains
       real :: tmp0, tmp1, tmp2
       logical :: same_tradv_data, rpt_mass, DEBUG_ADV, adjust_tracers
       logical, save :: first_run = .true.
-      character(len=ESMF_MAXSTR) :: mytracer
+      character(len=ESMF_MAXSTR) :: mytracer, field_name
       integer :: n, im, jm, lm, nq, QSPLIT, status
       class(logger_t), pointer :: logger
 
@@ -282,13 +282,12 @@ contains
       call ESMF_FieldBundleGet(tradv, fieldCount=nq, _RC)
       _RETURN_UNLESS(nq > 0)
 
-      ! TODO: pchakrab - logger is causing issues (hangs) with gfortran
-      ! call logger%info("Advcore is Advecting the following %i tracers", nq)
-      ! do n = 1, nq
-      !    call ESMF_FieldBundleGet(tradv, fieldIndex=n, field=field, _RC)
-      !    field_name = get_short_name(field, _RC)
-      !    call logger%info(field_name)
-      ! end do
+      call logger%info("Advcore is Advecting the following %i tracers", nq)
+      do n = 1, nq
+         call ESMF_FieldBundleGet(tradv, fieldIndex=n, field=field, _RC)
+         field_name = get_short_name(field, _RC)
+         call logger%info(field_name)
+      end do
 
       ! We allocate a list of tracers big enough to hold all items in the bundle
       call MAPL_GridCompGet(gc, grid=esmfgrid, num_levels=lm, _RC)
