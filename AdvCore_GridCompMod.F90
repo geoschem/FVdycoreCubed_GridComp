@@ -68,6 +68,7 @@ module AdvCore_GridCompMod
    use fv_grid_utils_mod, only: g_sum_r8
    use fv_diagnostics_mod, only: prt_maxmin, prt_minmax
    use FV_StateMod, only: FV_Atm, setup_fv_dimensions_and_topology
+   use FV_StateMod, only: get_geometry_subsection
    use FV_StateMod, only: AdvCoreTracers => T_TRACERS
    use fv_shared, only: field_is_cloud_water_species
    use fv_shared, only: get_short_name, is_name_in_list
@@ -546,11 +547,12 @@ contains
       integer, intent(out) :: rc
 
       type(ESMF_VM) :: vm
-      type(ESMF_HConfig) :: hconfig
+      type(ESMF_HConfig) :: hconfig, vertical_grid_cfg
       integer :: p_split = 1
       integer :: comm, num_levels, status
-      type(ESMF_HConfig) :: geometry_cfg, vertical_grid_cfg
-      logical :: has_geometry, has_vertical_grid, has_num_levels
+!ewl      type(ESMF_HConfig) :: geometry_cfg, vertical_grid_cfg
+!ewl      logical :: has_geometry, has_vertical_grid, has_num_levels
+      logical :: has_num_levels
 
       call ESMF_VMGetCurrent(vm, _RC)
       call ESMF_VMGet(vm, mpiCommunicator=comm, _RC)
@@ -558,25 +560,31 @@ contains
 
       call fv_init1(FV_Atm, dt, grids_on_my_pe, p_split)
 
-
-      ! Fix: read number of levels from advcore.yaml rather than get from MAPL
-      ! grid comp, since num vertical levels not yet initialized there (ewl)
-      !call MAPL_GridCompGet(gc, hconfig=hconfig, num_levels=num_levels, _RC)
+!ewl      ! Fix: read number of levels from advcore.yaml rather than get from MAPL
+!ewl      ! grid comp, since num vertical levels not yet initialized there (ewl)
+!ewl      !call MAPL_GridCompGet(gc, hconfig=hconfig, num_levels=num_levels, _RC)
+!ewl      call MAPL_GridCompGet(gc, hconfig=hconfig, _RC)
+!ewl      has_geometry = ESMF_HConfigIsDefined(hconfig, keyString="geometry", _RC)
+!ewl      _ASSERT(has_geometry, 'No geometry section in component hconfig')
+!ewl      geometry_cfg = ESMF_HConfigCreateAt(hconfig, keyString="geometry", _RC)
+!ewl      has_vertical_grid = &
+!ewl           ESMF_HConfigIsDefined(geometry_cfg, keyString="vertical_grid", _RC)
+!ewl      _ASSERT(has_vertical_grid, 'No vertical_grid section in geometry hconfig')
+!ewl      vertical_grid_cfg = &
+!ewl           ESMF_HConfigCreateAt(geometry_cfg, keyString="vertical_grid", _RC)
+!ewl      has_num_levels = &
+!ewl           ESMF_HConfigIsDefined(vertical_grid_cfg, keyString="num_levels", _RC)
+!ewl      _ASSERT(has_num_levels, 'num_levels not specified in vertical_grid section')
+!ewl      num_levels = ESMF_HConfigAsI4(vertical_grid_cfg, keyString="num_levels", _RC)
+!ewl      call ESMF_HConfigDestroy(vertical_grid_cfg, _RC)
+!ewl      call ESMF_HConfigDestroy(geometry_cfg, _RC)
       call MAPL_GridCompGet(gc, hconfig=hconfig, _RC)
-      has_geometry = ESMF_HConfigIsDefined(hconfig, keyString="geometry", _RC)
-      _ASSERT(has_geometry, 'No geometry section in component hconfig')
-      geometry_cfg = ESMF_HConfigCreateAt(hconfig, keyString="geometry", _RC)
-      has_vertical_grid = &
-           ESMF_HConfigIsDefined(geometry_cfg, keyString="vertical_grid", _RC)
-      _ASSERT(has_vertical_grid, 'No vertical_grid section in geometry hconfig')
-      vertical_grid_cfg = &
-           ESMF_HConfigCreateAt(geometry_cfg, keyString="vertical_grid", _RC)
+      vertical_grid_cfg = get_geometry_subsection(hconfig, "vertical_grid", _RC)
       has_num_levels = &
            ESMF_HConfigIsDefined(vertical_grid_cfg, keyString="num_levels", _RC)
-      _ASSERT(has_num_levels, 'num_levels not specified in vertical_grid section')
+      _ASSERT(has_num_levels, 'num_levels not specified in geometry:vertical_grid')
       num_levels = ESMF_HConfigAsI4(vertical_grid_cfg, keyString="num_levels", _RC)
       call ESMF_HConfigDestroy(vertical_grid_cfg, _RC)
-      call ESMF_HConfigDestroy(geometry_cfg, _RC)
 
       call setup_fv_dimensions_and_topology(hconfig, num_levels, FV_Atm(1)%flagstruct, FV_Atm(1)%layout, _RC)
       call fv_init2(FV_Atm, dt, grids_on_my_pe, p_split)
