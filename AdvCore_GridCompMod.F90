@@ -79,6 +79,7 @@ module AdvCore_GridCompMod
 
    logical :: FV3_DynCoreIsRunning
    integer :: AdvCore_Advection
+   logical :: scale_tracers_by_restart_delp ! Added for GCHP
    logical, allocatable, save :: grids_on_my_pe(:)
    real(kind=FVPRC) :: dt
 
@@ -159,6 +160,24 @@ contains
       end select
       call MAPL_GridCompGetResource(gc, "AdvCore_Advection", AdvCore_Advection, default=AdvCore_Advection, _RC)
 
+      ! Added for GCHP:
+      ! Optionally scale advected tracers in the first timestep by the ratio of
+      ! restart file delta dry pressure (from GEOS-Chem) to PLE0 delta pressure,
+      ! to conserve restart file mass. Import DELPDRY is only added if enabled.
+      call MAPL_GridCompGetResource(gc, "SCALE_TRACERS_BY_RESTART_DELP_DRY", &
+           scale_tracers_by_restart_delp, default=.false., _RC)
+      if (scale_tracers_by_restart_delp) then
+         call MAPL_GridCompAddSpec(gridcomp=gc,                         &
+              short_name       = 'DELPDRY',                             &
+              standard_name    = 'delta_dry_pressure_across_box',       &
+              units            = 'Pa',                                  &
+              typekind         = ESMF_TYPEKIND_R8,                      &
+              dims             = 'xyz',                                 &
+              vertical_stagger = MAPL_VERTICAL_STAGGER_CENTER,          &
+              state_intent     = ESMF_STATEINTENT_IMPORT,               &
+              _RC)
+      end if
+
       _RETURN(_SUCCESS)
    end subroutine SetServices
 
@@ -237,7 +256,9 @@ contains
       type(ESMF_TypeKind_Flag) :: tk
       type(ESMF_FieldBundle), save :: bundle_adv
       type(AdvCoreTracers), allocatable :: adv_tracers(:)
+
 #include "AdvCore_DeclarePointer___.h"
+
       real(kind=FVPRC), allocatable, dimension(:, :, :) :: xPLE1
       real(kind=FVPRC), allocatable, dimension(:, :, :, :) :: tracers
       real(kind=REAL8), allocatable :: tmass0(:), tmass1(:)
@@ -252,6 +273,10 @@ contains
       character(len=ESMF_MAXSTR) :: mytracer, field_name
       integer :: n, im, jm, lm, nq, QSPLIT, status
       class(logger_t), pointer :: logger
+
+      ! Added for GCHP
+      real(kind=REAL8), pointer :: DELPDRY(:,:,:) => null()
+      logical, save :: first_call = .true.
 
       _RETURN_UNLESS(AdvCore_Advection > 0)
 
@@ -311,6 +336,27 @@ contains
             tracers(:, :, :, n) = tracer_r8
          end if
       end do
+
+      ! Added for GCHP:
+      ! First timestep only: scale tracers by restart file delta dry pressure
+      ! divided by PLE0 delta pressure (as in MAPL2 GCHP), if enabled, to
+      ! conserve species mass in the restart file
+      if (first_call) then
+         first_call = .false.
+         if (scale_tracers_by_restart_delp) then
+            call MAPL_StateGetPointer(import, DELPDRY, 'DELPDRY', _RC)
+            if (sum(DELPDRY) > 0.d0) then
+               do n = 1, nq
+                  tracers(:,:,:,n) = tracers(:,:,:,n) *                  &
+                       real(DELPDRY / (PLE0(:,:,2:LM+1) - PLE0(:,:,1:LM)), &
+                            kind=FVPRC)
+               end do
+               call logger%info("Scaled advected tracers by restart DELP_DRY / PLE0 delta pressure")
+            else
+               call logger%warning("DELPDRY is zero (DELP_DRY not in restart?); tracers not scaled")
+            end if
+         end if
+      end if
 
       ! Tracer Mass before advection
       call MAPL_GridCompGetResource(gc, "ADV_CORE_REPORT_TRACER_MASS", rpt_mass, default=.false., _RC)
