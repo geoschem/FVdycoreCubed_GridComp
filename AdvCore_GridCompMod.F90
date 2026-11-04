@@ -1694,14 +1694,27 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
       integer,     intent(IN)          :: IM,JM,KM,NQ
 
       ! Locals
-      integer   :: i,j,k,n
+      integer     :: i,j,k,n
+      real(FVPRC) :: dple, tmp, ratio
+
+      ! Relative tolerance below with dp and the PLE thickness are
+      ! treated as identical (i.e. differences are only round-off)
+      real(FVPRC), paramater :: TOL = 1.0e-12_FVPRC
 
       ! Loop over levels and tracers and apply scaling
-      do n=1,NQ
       do k=1,KM
       do j=1,JM
       do i=1,IM
-         Q(i,j,k,n) = Q(i,j,k,n) * dp(i,j,k) / (PLE(i,j,k+1)-PLE(i,j,k))
+         dple = PLE(i,j,k+1) - PLE(i,j,k)
+         tmp = abs( dp(i,j,k) - dple )
+
+         ! Skip scaling if dp and dple differ only by round-off
+         if ( tmp <= TOL * abs(dple) ) cycle
+
+         ratio = dp(i,j,k) / dple
+         do n=1,NQ
+            Q(i,j,k,n) = Q(i,j,k,n) * ratio
+         endif
       enddo
       enddo
       enddo
