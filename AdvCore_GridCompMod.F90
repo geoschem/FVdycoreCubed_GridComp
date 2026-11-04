@@ -77,6 +77,7 @@ module AdvCore_GridCompMod
       real(FVPRC) :: dt
       logical     :: FV3_DynCoreIsRunning=.false.
       integer     :: AdvCore_Advection
+      logical     :: Scale_Tracers_by_Restart_DELP
       integer     :: Use_Total_Air_Pressure
       logical     :: chk_mass
 #ifdef ADJOINT
@@ -381,6 +382,19 @@ contains
       VERIFY_(STATUS)
       if(adjustl(DYCORE)=="FV3") FV3_DynCoreIsRunning = .true.
       if(adjustl(DYCORE)=="FV3+ADV") FV3_DynCoreIsRunning = .true.
+
+      ! Check if scaling advected tracers in the first timestep by the
+      ! ratio of restart file delta dry pressure (from GEOS-Chem) to PLE0
+      ! delta presure, to conserve restart file mass
+      ! -----------------------------------------------------------------
+      call MAPL_GetObjectFromGC (GC, MAPL,  RC=STATUS )
+      VERIFY_(STATUS)
+      call MAPL_GetResource(MAPL,                                      &
+                            Scale_Tracers_by_Restart_DELP,             &
+                            label='SCALE_TRACERS_BY_RESTART_DELP_DRY', &
+                            default=1,                                 &
+                            RC=STATUS )
+      VERIFY_(STATUS)
 
       ! Check if using total air pressure. If not then use dry air pressure.
       ! 1 = total air pressure; 0 = dry air pressure
@@ -1034,7 +1048,8 @@ contains
          ! If first timestep and delta pressure in the restart file is non-zero,
          ! then scale mixing ratios by ratio of restart file delta pressure to
          ! run-time met delta pressure in order to conserve restart file mass
-         if ( firstRun .and. associated(iDELPDRY) ) THEN
+         if ( firstRun .and. ( Scale_Tracers_by_Restart_DELP > 0 ) .and. &
+              associated(iDELPDRY) ) THEN
 
             ! Only scale mixing ratios if non-zero delta pressures in the restart file
             if ( sum(iDELPDRY) > 0.d0 ) THEN
