@@ -1693,7 +1693,7 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
 
       ! Relative tolerance below with dp and the PLE thickness are
       ! treated as identical (i.e. differences are only round-off)
-      real(FVPRC), paramater :: TOL = 1.0e-12_FVPRC
+      real(FVPRC), parameter :: TOL = 1.0e-12_FVPRC
 
       ! Loop over levels and tracers and apply scaling
       do k=1,KM
