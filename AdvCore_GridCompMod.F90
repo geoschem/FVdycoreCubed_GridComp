@@ -1054,6 +1054,7 @@ contains
 
             ! Only scale mixing ratios if non-zero delta pressures in the restart file
             if ( sum(iDELPDRY) > 0.d0 ) THEN
+
                ALLOCATE( DELPDRY(IM,JM,LM) )
                DELPDRY = iDELPDRY
                ! Always scale by ratio of restart delta dry pressure to met
