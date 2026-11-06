@@ -77,7 +77,7 @@ module AdvCore_GridCompMod
       real(FVPRC) :: dt
       logical     :: FV3_DynCoreIsRunning=.false.
       integer     :: AdvCore_Advection
-      logical     :: Scale_Tracers_by_Restart_DELP
+      integer     :: Scale_Tracers_by_Restart_DELP
       integer     :: Use_Total_Air_Pressure
       logical     :: chk_mass
 #ifdef ADJOINT
