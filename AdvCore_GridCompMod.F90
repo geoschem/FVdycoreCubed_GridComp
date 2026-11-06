@@ -77,6 +77,7 @@ module AdvCore_GridCompMod
       real(FVPRC) :: dt
       logical     :: FV3_DynCoreIsRunning=.false.
       integer     :: AdvCore_Advection
+      integer     :: Scale_Tracers_by_Restart_DELP
       integer     :: Use_Total_Air_Pressure
       logical     :: chk_mass
 #ifdef ADJOINT
@@ -381,6 +382,19 @@ contains
       VERIFY_(STATUS)
       if(adjustl(DYCORE)=="FV3") FV3_DynCoreIsRunning = .true.
       if(adjustl(DYCORE)=="FV3+ADV") FV3_DynCoreIsRunning = .true.
+
+      ! Check if scaling advected tracers in the first timestep by the
+      ! ratio of restart file delta dry pressure (from GEOS-Chem) to PLE0
+      ! delta presure, to conserve restart file mass
+      ! -----------------------------------------------------------------
+      call MAPL_GetObjectFromGC (GC, MAPL,  RC=STATUS )
+      VERIFY_(STATUS)
+      call MAPL_GetResource(MAPL,                                      &
+                            Scale_Tracers_by_Restart_DELP,             &
+                            label='SCALE_TRACERS_BY_RESTART_DELP_DRY', &
+                            default=1,                                 &
+                            RC=STATUS )
+      VERIFY_(STATUS)
 
       ! Check if using total air pressure. If not then use dry air pressure.
       ! 1 = total air pressure; 0 = dry air pressure
@@ -766,21 +780,22 @@ contains
       CALL MAPL_GetPointer(IMPORT, iCY,     'CY', ALLOC = .TRUE., RC=STATUS)
       VERIFY_(STATUS)
 
-      ! Using dry versus total air in GCHP
+      ! Dry pressure edges
+      CALL MAPL_GetPointer(IMPORT,iDryPLE0,'DryPLE0',ALLOC=.TRUE.,RC=STATUS)
+      VERIFY_(STATUS)
+      CALL MAPL_GetPointer(IMPORT,iDryPLE1,'DryPLE1',ALLOC=.TRUE.,RC=STATUS)
+      VERIFY_(STATUS)
+      ALLOCATE( DryPLE0(IM,JM,LM+1) )
+      ALLOCATE( DryPLE1(IM,JM,LM+1) )
+      DryPLE0 = iDryPLE0
+      DryPLE1 = iDryPLE1
+
+      ! Specific humidity only needed if using total air pressure
       IF ( Use_Total_Air_Pressure > 0 ) THEN
          CALL MAPL_GetPointer(IMPORT,iSPHU0,'SPHU0',ALLOC = .TRUE.,RC=STATUS)
          VERIFY_(STATUS)
          ALLOCATE( SPHU0(IM,JM,LM  ) )
          SPHU0   = iSPHU0
-      ELSE
-         CALL MAPL_GetPointer(IMPORT,iDryPLE0,'DryPLE0',ALLOC=.TRUE.,RC=STATUS)
-         VERIFY_(STATUS)
-         CALL MAPL_GetPointer(IMPORT,iDryPLE1,'DryPLE1',ALLOC=.TRUE.,RC=STATUS)
-         VERIFY_(STATUS)
-         ALLOCATE( DryPLE0(IM,JM,LM+1) )
-         ALLOCATE( DryPLE1(IM,JM,LM+1) )
-         DryPLE0 = iDryPLE0
-         DryPLE1 = iDryPLE1
       ENDIF
 
       ALLOCATE(  PLE0(IM,JM,LM+1) )
@@ -1034,28 +1049,23 @@ contains
          ! If first timestep and delta pressure in the restart file is non-zero,
          ! then scale mixing ratios by ratio of restart file delta pressure to
          ! run-time met delta pressure in order to conserve restart file mass
-         if ( firstRun .and. associated(iDELPDRY) ) THEN
+         if ( firstRun .and. ( Scale_Tracers_by_Restart_DELP > 0 ) .and. &
+              associated(iDELPDRY) ) THEN
 
             ! Only scale mixing ratios if non-zero delta pressures in the restart file
             if ( sum(iDELPDRY) > 0.d0 ) THEN
+
                ALLOCATE( DELPDRY(IM,JM,LM) )
                DELPDRY = iDELPDRY
+               ! Always scale by ratio of restart delta dry pressure to met
+               ! delta dry pressure. Tracers are still in units per dry air
+               ! here, and are converted to total air below if needed.
                if (AdvCore_Advection>0) then
-                  if (Use_Total_Air_Pressure > 0) then
-                     call scale_tracers_by_pressure_ratio(tracers, PLE0, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  else
-                     call scale_tracers_by_pressure_ratio(tracers, DryPLE0, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  endif
+                  call scale_tracers_by_pressure_ratio(tracers, DryPLE0, &
+                       DELPDRY, IM, JM, LM, NAdv)
                else
-                  if (Use_Total_Air_Pressure > 0) then
-                     call scale_tracers_by_pressure_ratio(tracers, PLE1, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  else
-                     call scale_tracers_by_pressure_ratio(tracers, DryPLE1, &
-                          DELPDRY, IM, JM, LM, NAdv)
-                  endif
+                  call scale_tracers_by_pressure_ratio(tracers, DryPLE1, &
+                       DELPDRY, IM, JM, LM, NAdv)
                endif
                DEALLOCATE( DELPDRY )
             endif
@@ -1362,6 +1372,8 @@ contains
 
       DEALLOCATE( PLE0   )
       DEALLOCATE( PLE1   )
+      DEALLOCATE( DryPLE0 )
+      DEALLOCATE( DryPLE1 )
       DEALLOCATE( PLEAdv )
       DEALLOCATE(  MFX   )
       DEALLOCATE(  MFY   )
@@ -1370,9 +1382,6 @@ contains
 
       if ( Use_Total_Air_Pressure > 0 ) then
          DEALLOCATE( SPHU0 )
-      else
-         DEALLOCATE( DryPLE0 )
-         DEALLOCATE( DryPLE1 )
       endif
 
       call MAPL_TimerOff(MAPL,"RUN")
@@ -1679,14 +1688,27 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
       integer,     intent(IN)          :: IM,JM,KM,NQ
 
       ! Locals
-      integer   :: i,j,k,n
+      integer     :: i,j,k,n
+      real(FVPRC) :: dple, tmp, ratio
+
+      ! Relative tolerance below with dp and the PLE thickness are
+      ! treated as identical (i.e. differences are only round-off)
+      real(FVPRC), paramater :: TOL = 1.0e-12_FVPRC
 
       ! Loop over levels and tracers and apply scaling
-      do n=1,NQ
       do k=1,KM
       do j=1,JM
       do i=1,IM
-         Q(i,j,k,n) = Q(i,j,k,n) * dp(i,j,k) / (PLE(i,j,k+1)-PLE(i,j,k))
+         dple = PLE(i,j,k+1) - PLE(i,j,k)
+         tmp = abs( dp(i,j,k) - dple )
+
+         ! Skip scaling if dp and dple differ only by round-off
+         if ( tmp <= TOL * abs(dple) ) cycle
+
+         ratio = dp(i,j,k) / dple
+         do n=1,NQ
+            Q(i,j,k,n) = Q(i,j,k,n) * ratio
+         endif
       enddo
       enddo
       enddo
