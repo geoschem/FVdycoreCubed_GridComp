@@ -1708,8 +1708,7 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
          ratio = dp(i,j,k) / dple
          do n=1,NQ
             Q(i,j,k,n) = Q(i,j,k,n) * ratio
-         endif
-      enddo
+         enddo
       enddo
       enddo
       enddo
