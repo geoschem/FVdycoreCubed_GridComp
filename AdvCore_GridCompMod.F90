@@ -363,11 +363,13 @@ contains
                                         Finalize,   RC=status)
       VERIFY_(STATUS)
 
+      ! Get MAPL object to retrieve config file settings
+      call MAPL_GetObjectFromGC (GC, MAPL,  RC=STATUS )
+      VERIFY_(STATUS)
+
       ! Check if AdvCore is running without FV3_DynCoreIsRunning. If yes 
       ! then setup the MAPL Grid 
       ! -----------------------------------------------------------------
-      call MAPL_GetObjectFromGC (GC, MAPL,  RC=STATUS )
-      VERIFY_(STATUS)
       call MAPL_GetResource(MAPL,       &
                             DYCORE,     &
                             'DYCORE:',  &
@@ -387,12 +389,10 @@ contains
       ! ratio of restart file delta dry pressure (from GEOS-Chem) to PLE0
       ! delta presure, to conserve restart file mass
       ! -----------------------------------------------------------------
-      call MAPL_GetObjectFromGC (GC, MAPL,  RC=STATUS )
-      VERIFY_(STATUS)
-      call MAPL_GetResource(MAPL,                                      &
-                            Scale_Tracers_by_Restart_DELP,             &
-                            label='SCALE_TRACERS_BY_RESTART_DELP_DRY', &
-                            default=1,                                 &
+      call MAPL_GetResource(MAPL,                                       &
+                            Scale_Tracers_by_Restart_DELP,              &
+                            label='SCALE_TRACERS_BY_RESTART_DELP_DRY:', &
+                            default=0,                                  &
                             RC=STATUS )
       VERIFY_(STATUS)
 
@@ -1690,10 +1690,13 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
       ! Locals
       integer     :: i,j,k,n
       real(FVPRC) :: dple, tmp, ratio
+      integer :: num_scaled
 
       ! Relative tolerance below with dp and the PLE thickness are
       ! treated as identical (i.e. differences are only round-off)
       real(FVPRC), parameter :: TOL = 1.0e-12_FVPRC
+
+      num_scaled = 0
 
       ! Loop over levels and tracers and apply scaling
       do k=1,KM
@@ -1704,7 +1707,7 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
 
          ! Skip scaling if dp and dple differ only by round-off
          if ( tmp <= TOL * abs(dple) ) cycle
-
+         num_scaled = num_scaled +1
          ratio = dp(i,j,k) / dple
          do n=1,NQ
             Q(i,j,k,n) = Q(i,j,k,n) * ratio
@@ -1712,6 +1715,19 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
       enddo
       enddo
       enddo
+
+      if ( MAPL_Am_I_Root() ) then
+         if ( num_scaled > 0 ) then
+            write(6,*) ""
+            write(6,*) "WARNING: Restart file delta pressure (DELP_DRY) and meteorology delta"
+            write(6,*) "pressure in the first timestep are different by greater than tolerance value"
+            write(6,*) "of 1e-12. Advected species concentrations in the restart file will therefore"
+            write(6,*) "be scaled by the pressure ratio in the first timestep before advection"
+            write(6,*) "to conserve species mass. Edit GCHP.rc if you wish to turn off this scaling"
+            write(6,*) "and initialize with the restart file concentration values unchanged."
+            write(6,*) ""
+         endif
+      endif
 
 end subroutine scale_tracers_by_pressure_ratio
 
