@@ -1689,7 +1689,7 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
 
       ! Locals
       integer     :: i,j,k,n
-      real(FVPRC) :: dple, tmp, ratio
+      real(FVPRC) :: dple, tmp
       integer :: num_scaled
 
       ! Relative tolerance below with dp and the PLE thickness are
@@ -1710,7 +1710,7 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
          num_scaled = num_scaled +1
          ratio = dp(i,j,k) / dple
          do n=1,NQ
-            Q(i,j,k,n) = Q(i,j,k,n) * ratio
+            Q(i,j,k,n) = Q(i,j,k,n) * dp(i,j,k) / ( PLE(i,j,k+1) - PLE(i,j,k) )
          enddo
       enddo
       enddo
