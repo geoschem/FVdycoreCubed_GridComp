@@ -1689,28 +1689,34 @@ subroutine scale_tracers_by_pressure_ratio (Q,PLE,DP,IM,JM,KM,NQ)
 
       ! Locals
       integer     :: i,j,k,n
-      real(FVPRC) :: dple, tmp, ratio
-      integer :: num_scaled
+      real(FVPRC) :: dple, tmp
+      integer     :: num_scaled
 
-      ! Relative tolerance below with dp and the PLE thickness are
-      ! treated as identical (i.e. differences are only round-off)
-      real(FVPRC), parameter :: TOL = 1.0e-12_FVPRC
+      ! Relative tolerance below which PLE and DP are considered as
+      ! identical (i.e. differences are only round-off) and therefore
+      ! no scaling occurs. Such round-off differences are expected
+      ! due to unit differences (Pa vs hPa) in the gridded components
+      ! in which they are computed (GCHPctmEnv and GEOS-Chem).
+      !
+      ! NOTE: For now, do not tolerate any roundoff to exactly
+      ! conserve mass in the restart file and prevent differences
+      ! introduced to the benchmark (ewl, 11/10/26)
+      real(FVPRC), parameter :: TOL = 0.0_FVPRC
 
+      ! Initialize
       num_scaled = 0
 
       ! Loop over levels and tracers and apply scaling
       do k=1,KM
       do j=1,JM
       do i=1,IM
+
          dple = PLE(i,j,k+1) - PLE(i,j,k)
          tmp = abs( dp(i,j,k) - dple )
-
-         ! Skip scaling if dp and dple differ only by round-off
-         if ( tmp <= TOL * abs(dple) ) cycle
-         num_scaled = num_scaled +1
-         ratio = dp(i,j,k) / dple
+         if ( tmp < TOL * abs(dple) ) cycle
+         num_scaled = num_scaled + 1
          do n=1,NQ
-            Q(i,j,k,n) = Q(i,j,k,n) * ratio
+            Q(i,j,k,n) = Q(i,j,k,n) * dp(i,j,k) / ( PLE(i,j,k+1) - PLE(i,j,k) )
          enddo
       enddo
       enddo
