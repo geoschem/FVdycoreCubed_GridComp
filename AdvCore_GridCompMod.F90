@@ -337,26 +337,26 @@ contains
          end if
       end do
 
-      ! Added for GCHP:
-      ! First timestep only: scale tracers by restart file delta dry pressure
-      ! divided by PLE0 delta pressure (as in MAPL2 GCHP), if enabled, to
-      ! conserve species mass in the restart file
-      if (first_call) then
-         first_call = .false.
-         if (scale_tracers_by_restart_delp) then
-            call MAPL_StateGetPointer(import, DELPDRY, 'DELPDRY', _RC)
-            if (sum(DELPDRY) > 0.d0) then
-               do n = 1, nq
-                  tracers(:,:,:,n) = tracers(:,:,:,n) *                  &
-                       real(DELPDRY / (PLE0(:,:,2:LM+1) - PLE0(:,:,1:LM)), &
-                            kind=FVPRC)
-               end do
-               call logger%info("Scaled advected tracers by restart DELP_DRY / PLE0 delta pressure")
-            else
-               call logger%warning("DELPDRY is zero (DELP_DRY not in restart?); tracers not scaled")
-            end if
-         end if
-      end if
+!ewl      ! Added for GCHP:
+!ewl      ! First timestep only: scale tracers by restart file delta dry pressure
+!ewl      ! divided by PLE0 delta pressure (as in MAPL2 GCHP), if enabled, to
+!ewl      ! conserve species mass in the restart file
+!ewl      if (first_call) then
+!ewl         first_call = .false.
+!ewl         if (scale_tracers_by_restart_delp) then
+!ewl            call MAPL_StateGetPointer(import, DELPDRY, 'DELPDRY', _RC)
+!ewl            if (sum(DELPDRY) > 0.d0) then
+!ewl               do n = 1, nq
+!ewl                  tracers(:,:,:,n) = tracers(:,:,:,n) *                  &
+!ewl                       real(DELPDRY / (PLE0(:,:,2:LM+1) - PLE0(:,:,1:LM)), &
+!ewl                            kind=FVPRC)
+!ewl               end do
+!ewl               call logger%info("Scaled advected tracers by restart DELP_DRY / PLE0 delta pressure")
+!ewl            else
+!ewl               call logger%warning("DELPDRY is zero (DELP_DRY not in restart?); tracers not scaled")
+!ewl            end if
+!ewl         end if
+!ewl      end if
 
       ! Tracer Mass before advection
       call MAPL_GridCompGetResource(gc, "ADV_CORE_REPORT_TRACER_MASS", rpt_mass, default=.false., _RC)
